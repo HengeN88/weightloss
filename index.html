@@ -84,6 +84,7 @@ const NOKKEL = "weightloss.v1";
 const GAMLE_NOKLER = ["weightloss-jhs.v1", "datablad.v1"];
 const MAAL_VEKT = 80, MAAL_PROT = 170, MAAL_SKRITT = 9000, MAAL_SOVN = 7.5;
 const START_KCAL = 2400, KCAL_PER_KG = 7700, BACKUP_DAGER = 7;
+const SKRITT_PER_SYKKELMIN = 115;   // rolig tempo, ~125 kg
 
 const TOM = {
   vekt:{}, maltider:{}, favoritter:{}, okter:{}, vaner:{},
@@ -135,6 +136,9 @@ const dagerMellom = (a,b) => Math.round((new Date(b)-new Date(a))/86400000);
 const sisteVekt = () => { const d = Object.keys(S.vekt).sort(); return d.length ? S.vekt[d[d.length-1]] : null; };
 const forsteVekt = () => { const d = Object.keys(S.vekt).sort(); return d.length ? S.vekt[d[0]] : null; };
 const dagensKcal = d => (S.maltider[d]||[]).reduce((a,m)=>a+m.k,0);
+const sykkelMin = d => (S.okter[d] && S.okter[d].sykkel && S.okter[d].sykkel.min) || 0;
+const sykkelSkritt = d => Math.round(sykkelMin(d) * SKRITT_PER_SYKKELMIN);
+const skrittTotal = d => (S.skritt[d]||0) + sykkelSkritt(d);
 const dagensProt = d => (S.maltider[d]||[]).reduce((a,m)=>a+m.p,0);
 const maalKcal = () => S.maalKcal || START_KCAL;
 
@@ -350,12 +354,13 @@ function byggCsv(){
   const alle = new Set([].concat(
     Object.keys(S.vekt), Object.keys(S.maltider), Object.keys(S.skritt),
     Object.keys(S.sovn), Object.keys(S.mal), Object.keys(S.okter)));
-  const rader = ["dato;vekt;kcal;protein;skritt;sovn;liv;hofte;bryst;arm;okter"];
+  const rader = ["dato;vekt;kcal;protein;skritt;sykkelmin;skritt_totalt;sovn;liv;hofte;bryst;arm;okter"];
   for(const d of [...alle].sort()){
     const m = S.maltider[d]||[], mm = S.mal[d]||{};
     const o = S.okter[d] ? Object.keys(S.okter[d]).join("+") : "";
     rader.push([d, S.vekt[d]??"", m.length?dagensKcal(d):"", m.length?Math.round(dagensProt(d)):"",
-      S.skritt[d]??"", S.sovn[d]??"", mm.liv??"", mm.hofte??"", mm.bryst??"", mm.arm??"", o].join(";"));
+      S.skritt[d]??"", sykkelMin(d)||"", (S.skritt[d]||sykkelMin(d))?skrittTotal(d):"",
+      S.sovn[d]??"", mm.liv??"", mm.hofte??"", mm.bryst??"", mm.arm??"", o].join(";"));
   }
   return rader.join("\n");
 }
@@ -499,7 +504,9 @@ function vFokus(){
     <div style="height:14px"></div>
     ${maaler("Protein", Math.round(p), MAAL_PROT, "g", "var(--signal)")}
     <div style="height:14px"></div>
-    ${maaler("Skritt", S.skritt[d]||0, MAAL_SKRITT, "", "var(--steel)", true)}
+    ${maaler("Skritt", skrittTotal(d), MAAL_SKRITT, "", "var(--steel)", true)}
+    ${sykkelMin(d) ? `<div class="mono" style="font-size:11px;color:var(--mute);margin-top:5px">
+      ${S.skritt[d]||0} gått + ${nk(sykkelMin(d),0)} min sykkel (${tall(sykkelSkritt(d))})</div>` : ""}
     <div style="height:14px"></div>
     ${maaler("Søvn", S.sovn[d]||0, MAAL_SOVN, "t", "var(--signal)", true, 1)}
   </section>`;
@@ -514,6 +521,12 @@ function vFokus(){
       ${tallFelt("f_skritt","skritt", S.skritt[d], "settSkritt")}
       ${tallFelt("f_sovn","søvn t", S.sovn[d], "settSovn", true)}
     </div>
+    <div class="flex" style="margin-top:8px">
+      ${tallFelt("f_syk","+ min sykkel", null, "leggSykMin")}
+      <div></div>
+    </div>
+    <p class="hjelp" style="margin-top:8px">Sykkelminutter legges til, ikke overskrives.
+      Fem minutter av gangen gjennom dagen teller like mye som én lang økt.</p>
   </section>`;
 
   return h;
@@ -636,6 +649,12 @@ function vDag(){
       ${tallFelt("d_skritt","skritt", S.skritt[d], "settSkritt")}
       ${tallFelt("d_sovn","timer søvn", S.sovn[d], "settSovn", true)}
     </div>
+    <div class="flex" style="margin-top:8px">
+      ${tallFelt("d_syk","+ min sykkel", null, "leggSykMin")}
+      <div></div>
+    </div>
+    ${sykkelMin(d) ? `<div class="mono" style="font-size:11px;color:var(--mute);margin-top:8px">
+      I dag: ${S.skritt[d]||0} skritt + ${nk(sykkelMin(d),0)} min sykkel = ${tall(skrittTotal(d))}</div>` : ""}
   </section>`;
 
   /* Spist i dag */
@@ -819,9 +838,11 @@ function vTrening(){
   if(treningType==="sykkel"){
     h += `<section class="kort"><span class="etikett">ERGOMETERSYKKEL</span>
       <div class="flex" style="margin-top:12px">
-        ${tallFelt("sy_min","minutter", okt.min, "settSykMin")}
+        ${tallFelt("sy_min","+ minutter", null, "leggSykMin")}
         ${tallFelt("sy_mot","motstand", okt.motstand, "settSykMot")}
       </div>
+      <div class="mono" style="font-size:11.5px;color:var(--mute);margin-top:8px">
+        I dag: ${nk(okt.min||0,0)} min · teller som ${tall((okt.min||0)*SKRITT_PER_SYKKELMIN)} skritt</div>
       <div class="flex" style="margin-top:8px">
         ${tallFelt("sy_puls","snittpuls", okt.puls, "settSykPuls")}
         <div></div>
@@ -850,7 +871,7 @@ function vindu(fra, til){
     vekt:   snitt(datoer.filter(d=>S.vekt[d]!==undefined).map(d=>S.vekt[d])),
     kcal:   snitt(medMat.map(dagensKcal)),
     prot:   snitt(medMat.map(dagensProt)),
-    skritt: snitt(datoer.filter(d=>S.skritt[d]!==undefined).map(d=>S.skritt[d])),
+    skritt: snitt(datoer.filter(d=>S.skritt[d]!==undefined || sykkelMin(d)).map(skrittTotal)),
     sovn:   snitt(datoer.filter(d=>S.sovn[d]!==undefined).map(d=>S.sovn[d])),
     okter:  datoer.filter(d=>S.okter[d] && Object.keys(S.okter[d]).length).length,
     logget: medMat.length
@@ -1169,7 +1190,16 @@ const HANDLING = {
     S.okter[d].gym.notat = t.value;
     lagre();
   },
-  settSykMin:  e => sykkel("min", lesFelt(e.dataset.felt)),
+  leggSykMin: e => {
+    const v = lesFelt(e.dataset.felt);
+    if(v===null || v<=0) return varsle("Skriv antall minutter.");
+    const d = idag();
+    S.okter[d] = S.okter[d] || {};
+    S.okter[d].sykkel = S.okter[d].sykkel || {};
+    S.okter[d].sykkel.min = (S.okter[d].sykkel.min || 0) + v;
+    lagre(); tegn();
+    varsle("+" + nk(v,0) + " min · " + tall(v*SKRITT_PER_SYKKELMIN) + " skritt");
+  },
   settSykMot:  e => sykkel("motstand", lesFelt(e.dataset.felt)),
   settSykPuls: e => sykkel("puls", lesFelt(e.dataset.felt)),
 
