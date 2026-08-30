@@ -224,6 +224,19 @@ const MAT = [
 
 const ENHETER = ["100 g","100 ml","stk","porsjon","skive","ss","glass"];
 
+const MALTIDSTYPER = ["Frokost","Lunsj","Mellom","Middag","Kvelds","Ekstra"];
+
+/* Foreslår måltid ut fra klokka, så du sjelden trenger å velge */
+function standardMaltid(){
+  const t = new Date().getHours() + new Date().getMinutes()/60;
+  if(t < 10)   return "Frokost";
+  if(t < 13)   return "Lunsj";
+  if(t < 15.5) return "Mellom";
+  if(t < 19.5) return "Middag";
+  if(t < 22)   return "Kvelds";
+  return "Ekstra";
+}
+
 /* Innebygde varer + dine egne, i samme liste */
 function alleMat(){
   return MAT.concat((S.egneMat||[]).map(m=>({n:m.n, e:m.e, k:m.k, p:m.p, egen:true})));
@@ -534,7 +547,7 @@ function vFokus(){
 
 /* ═══ Dag ═════════════════════════════════════════════════ */
 
-let sokTekst = "", valgtMat = null, egenModus = false, malModus = false;
+let sokTekst = "", valgtMat = null, egenModus = false, malModus = false, valgtMaltid = null;
 
 function vDag(){
   const d = idag();
@@ -548,10 +561,16 @@ function vDag(){
   </section>`;
 
   /* Matsøk */
+  if(!valgtMaltid) valgtMaltid = standardMaltid();
   h += `<section class="kort"><div class="mellom">
     <span class="etikett">LEGG TIL MAT</span>
     <button class="lenke" data-act="byttModus">${egenModus?"Søk i listen":"Skriv inn selv"}</button>
-  </div>`;
+  </div>
+  <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:10px">` +
+    MALTIDSTYPER.map(t=>`<button class="brikke" style="flex:1 1 auto;padding:8px 6px;text-align:center;
+      background:${valgtMaltid===t?"var(--ink)":"#FFF"};color:${valgtMaltid===t?"var(--paper)":"var(--mute)"};
+      border-color:${valgtMaltid===t?"var(--ink)":"var(--hair)"};font-size:12px"
+      data-act="settMaltid" data-t="${t}">${t}</button>`).join("") + `</div>`;
 
   if(egenModus){
     h += `<input class="felt" id="e_navn" placeholder="Navn på matvaren" style="margin-top:12px">
@@ -659,11 +678,31 @@ function vDag(){
 
   /* Spist i dag */
   h += `<section class="kort"><span class="etikett">SPIST I DAG</span>`;
-  if(!dagens.length) h += `<p class="tom">Ingenting logget ennå.</p>`;
-  else h += `<ul class="rein">` + dagens.map((m,i)=>`<li class="rad">
-      <span style="flex:1">${esc(m.n)}</span>
-      <span class="mono" style="font-size:12.5px;color:var(--mute)">${m.k} kcal · ${nk(m.p,0)} g</span>
-      <button class="fjern" data-act="fjernMat" data-i="${i}" aria-label="Fjern">×</button></li>`).join("") + `</ul>`;
+  if(!dagens.length){
+    h += `<p class="tom">Ingenting logget ennå.</p>`;
+  } else {
+    const grupper = {};
+    dagens.forEach((m,i)=>{
+      const t = m.t || "Uplassert";
+      (grupper[t] = grupper[t] || []).push([m,i]);
+    });
+    const rekkefolge = MALTIDSTYPER.concat(["Uplassert"]).filter(t=>grupper[t]);
+    for(const t of rekkefolge){
+      const k = grupper[t].reduce((a,x)=>a+x[0].k, 0);
+      const p = grupper[t].reduce((a,x)=>a+x[0].p, 0);
+      h += `<div style="border-top:1px solid var(--hair);margin-top:12px;padding-top:10px">
+        <div class="mellom">
+          <span class="etikett">${t.toUpperCase()}</span>
+          <span class="mono" style="font-size:12px">${k} kcal<span style="color:var(--mute)"> · ${nk(p,0)} g</span></span>
+        </div>
+        <ul class="rein" style="margin-top:4px">` +
+        grupper[t].map(x=>`<li class="rad" style="border-top:none;padding:6px 0">
+          <span style="flex:1">${esc(x[0].n)}</span>
+          <span class="mono" style="font-size:12px;color:var(--mute)">${x[0].k} · ${nk(x[0].p,0)} g</span>
+          <button class="fjern" data-act="fjernMat" data-i="${x[1]}" aria-label="Fjern">×</button></li>`).join("") +
+        `</ul></div>`;
+    }
+  }
   h += `</section>`;
 
   return h;
@@ -1101,6 +1140,7 @@ const HANDLING = {
   settSovn:   e => { const v = lesFelt(e.dataset.felt); if(v===null||v<0||v>24) return; S.sovn[idag()] = v; lagre(); tegn(); },
 
   byttModus: () => { egenModus = !egenModus; valgtMat = null; tegn(); },
+  settMaltid: e => { valgtMaltid = e.dataset.t; tegn(); },
   nullstillMat: () => { valgtMat = null; tegn(); },
   velgMat: e => { valgtMat = alleMat().find(m=>m.n===e.dataset.navn); egenModus = false; tegn(); },
 
@@ -1235,6 +1275,7 @@ function sykkel(felt, v){
 
 function leggTilMat(m, favNavn){
   const d = idag();
+  m.t = valgtMaltid || standardMaltid();
   S.maltider[d] = (S.maltider[d]||[]).concat([m]);
   S.favoritter[favNavn] = (S.favoritter[favNavn]||0) + 1;
   lagre();
