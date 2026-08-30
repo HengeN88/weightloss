@@ -2,7 +2,7 @@
    Cache-first. Appen skal virke uten nett, alltid.
    Bump VERSJON når index.html endres, ellers ser du den gamle. */
 
-const VERSJON = "weightloss-v3";
+const VERSJON = "weightloss-v4";
 const FILER = [
   "./",
   "./index.html",
