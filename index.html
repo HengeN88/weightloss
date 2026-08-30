@@ -1,0 +1,1262 @@
+<!DOCTYPE html>
+<html lang="nb">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#EEEFEC">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Weightloss</title>
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./icon-192.png">
+<link rel="apple-touch-icon" href="./icon-192.png">
+<style>
+:root{
+  --paper:#EEEFEC; --card:#F7F7F5; --ink:#16191C; --mute:#71767B;
+  --hair:#C9CBC5; --steel:#2F5D7C; --signal:#3E7C5A; --warn:#B5842A; --spor:#E2E3DF;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--paper);color:var(--ink)}
+body{
+  font:14px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;
+  max-width:560px;margin:0 auto;
+  padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+}
+.mono{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+button{font:inherit;cursor:pointer}
+input,textarea,select{font:inherit}
+:focus-visible{outline:2px solid var(--steel);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+header.topp{padding:18px 16px 14px;border-bottom:1px solid var(--hair)}
+.etikett{font-family:ui-monospace,Menlo,monospace;font-size:10px;letter-spacing:.16em}
+.stor{font-family:ui-monospace,Menlo,monospace;font-size:46px;line-height:.9;letter-spacing:-.03em}
+nav.faner{display:flex;position:sticky;top:0;background:var(--paper);
+  border-bottom:1px solid var(--hair);z-index:5}
+nav.faner button{flex:1;padding:12px 2px;background:none;border:none;
+  border-bottom:2px solid transparent;font-size:12.5px;color:var(--mute)}
+nav.faner button[aria-current="true"]{color:var(--ink);border-bottom-color:var(--steel)}
+main{padding:0 16px 48px}
+section.kort{background:var(--card);border:1px solid var(--hair);padding:16px;margin-top:14px}
+.hjelp{color:var(--mute);font-size:12.5px;margin:0;line-height:1.55}
+.tom{color:var(--mute);font-size:13px;margin:10px 0 0}
+.rad{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--hair)}
+.felt{padding:10px 11px;border:1px solid var(--hair);background:#FFF;color:var(--ink);
+  font-size:16px;min-width:0;width:100%;border-radius:0}
+.knapp{padding:11px 14px;background:var(--steel);color:#FFF;border:none;font-size:13px;
+  white-space:nowrap;border-radius:0}
+.knapp.stille{background:transparent;color:var(--ink);border:1px solid var(--hair)}
+.knapp.stor{width:100%;padding:14px;font-size:15px}
+.knapp[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+.brikke{padding:6px 10px;background:#FFF;border:1px solid var(--hair);font-size:13px}
+.lenke{background:none;border:none;color:var(--steel);font-size:12.5px;
+  text-decoration:underline;padding:0}
+.spor{height:7px;background:var(--spor);margin-top:8px;border:1px solid var(--hair)}
+.spor>i{display:block;height:100%;transition:width .35s ease}
+.fjern{background:none;border:none;color:var(--mute);font-size:18px;padding:0 2px}
+.flex{display:flex;gap:8px}
+.flex>*{flex:1;min-width:0}
+.mellom{display:flex;justify-content:space-between;align-items:baseline}
+.banner{border:1px solid var(--ink);background:var(--card);padding:16px;margin-top:14px}
+.banner p{margin:8px 0 0;font-size:15px;line-height:1.5}
+.varsel{border:1px solid var(--warn);background:#FBF6EA;padding:14px;margin-top:14px}
+.matrad{display:flex;align-items:center;gap:10px;width:100%;padding:10px 0;
+  background:none;border:none;font-size:14px;color:var(--ink);text-align:left}
+.forslag{display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%;
+  margin-top:8px;padding:9px 10px;background:#FFF;border:1px solid var(--hair);text-align:left}
+.ur{display:flex;align-items:center;gap:14px}
+.ur .tid{font-family:ui-monospace,Menlo,monospace;font-size:30px;min-width:84px;letter-spacing:-.02em}
+ul.rein{list-style:none;padding:0;margin:10px 0 0}
+.kryss{width:26px;height:26px;flex:0 0 auto;margin-right:12px;border:1.5px solid var(--hair);
+  background:transparent;color:#FFF;font-size:14px;line-height:1;padding:0}
+.kryss[aria-pressed="true"]{background:var(--signal);border-color:var(--signal)}
+svg{display:block;width:100%}
+</style>
+</head>
+<body>
+<header class="topp" id="topp"></header>
+<nav class="faner" id="faner"></nav>
+<main id="hoved"></main>
+<script>
+"use strict";
+/* ═══ Data ════════════════════════════════════════════════ */
+
+const NOKKEL = "weightloss.v1";
+const GAMLE_NOKLER = ["weightloss-jhs.v1", "datablad.v1"];
+const MAAL_VEKT = 80, MAAL_PROT = 170, MAAL_SKRITT = 9000, MAAL_SOVN = 7.5;
+const START_KCAL = 2400, KCAL_PER_KG = 7700, BACKUP_DAGER = 7;
+
+const TOM = {
+  vekt:{}, maltider:{}, favoritter:{}, okter:{}, vaner:{},
+  skritt:{}, sovn:{}, mal:{}, maler:{}, egneMat:[], maalKcal:START_KCAL, sisteBackup:null
+};
+
+let S = JSON.parse(JSON.stringify(TOM));
+let fane = "fokus";
+let urId = null, urIgjen = 0;
+
+function lagre(){
+  try { localStorage.setItem(NOKKEL, JSON.stringify(S)); }
+  catch(e){ varsle("Kunne ikke lagre. Lagringen kan være full."); }
+}
+function last(){
+  try {
+    let r = localStorage.getItem(NOKKEL);
+    for(const g of GAMLE_NOKLER) if(!r) r = localStorage.getItem(g);   // arv fra tidligere navn
+    if(r) S = Object.assign(JSON.parse(JSON.stringify(TOM)), migrer(JSON.parse(r)));
+  } catch(e){ /* starter tomt */ }
+}
+function migrer(d){
+  if(Array.isArray(d.favoritter)) d.favoritter = {};
+  if(!Array.isArray(d.egneMat)) d.egneMat = [];
+  if(d.okter){
+    const ny = {};
+    for(const [dato,o] of Object.entries(d.okter)){
+      ny[dato] = (o && o.type && o.sett) ? {[o.type]:{sett:o.sett}} : o;
+    }
+    d.okter = ny;
+  }
+  return d;
+}
+
+/* ═══ Hjelpere ════════════════════════════════════════════ */
+
+const iso = d => new Date(d.getTime() - d.getTimezoneOffset()*60000).toISOString().slice(0,10);
+const idag = () => iso(new Date());
+const forSiden = n => { const d = new Date(); d.setDate(d.getDate()-n); return iso(d); };
+const nk = (v,d=1) => (v===null||v===undefined||isNaN(v)) ? "–" : Number(v).toFixed(d).replace(".",",");
+const tall = n => Math.round(n).toLocaleString("nb-NO");
+const kort = s => { const p = s.split("-"); return (+p[2])+"."+(+p[1])+"."; };
+const snitt = a => a.length ? a.reduce((x,y)=>x+y,0)/a.length : null;
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const num = v => { const n = parseFloat(String(v).replace(",",".")); return isNaN(n) ? null : n; };
+const $ = id => document.getElementById(id);
+const dagerMellom = (a,b) => Math.round((new Date(b)-new Date(a))/86400000);
+
+const sisteVekt = () => { const d = Object.keys(S.vekt).sort(); return d.length ? S.vekt[d[d.length-1]] : null; };
+const forsteVekt = () => { const d = Object.keys(S.vekt).sort(); return d.length ? S.vekt[d[0]] : null; };
+const dagensKcal = d => (S.maltider[d]||[]).reduce((a,m)=>a+m.k,0);
+const dagensProt = d => (S.maltider[d]||[]).reduce((a,m)=>a+m.p,0);
+const maalKcal = () => S.maalKcal || START_KCAL;
+
+function serie(){
+  const d = Object.keys(S.vekt).sort();
+  return d.map((dato,i)=>{
+    const v = d.slice(Math.max(0,i-6), i+1);
+    return { dato, kg:S.vekt[dato], trend:v.reduce((a,x)=>a+S.vekt[x],0)/v.length };
+  });
+}
+function rekke(id){
+  let n = 0; const d = new Date();
+  for(let i=0;i<500;i++){
+    const k = iso(d);
+    if(S.vaner[k] && S.vaner[k][id]) n++;
+    else if(k !== idag()) break;
+    d.setDate(d.getDate()-1);
+  }
+  return n;
+}
+function dagerIGang(){
+  const alle = [...Object.keys(S.vekt), ...Object.keys(S.maltider)].sort();
+  return alle.length ? dagerMellom(alle[0], idag()) + 1 : 0;
+}
+
+/* ═══ Program og matvarer ═════════════════════════════════ */
+
+const PROGRAM = {
+  A:[
+    {n:"Benkpress",       s:"3 × 8–10",  sett:3, lo:8,  hi:10, inc:2.5, e:"reps", pause:150},
+    {n:"Nedtrekk",        s:"3 × 10–12", sett:3, lo:10, hi:12, inc:2.5, e:"reps", pause:120},
+    {n:"Beinpress",       s:"3 × 10–12", sett:3, lo:10, hi:12, inc:5,   e:"reps", pause:150},
+    {n:"Sittende roing",  s:"3 × 10–12", sett:3, lo:10, hi:12, inc:2.5, e:"reps", pause:120},
+    {n:"Planke",          s:"3 × 30 sek",sett:3, lo:20, hi:45, inc:0,   e:"sek",  pause:60}
+  ],
+  B:[
+    {n:"Skulderpress",     s:"3 × 8–10", sett:3, lo:8,  hi:10, inc:2.5, e:"reps", pause:150},
+    {n:"Goblet squat",     s:"3 × 10",   sett:3, lo:10, hi:12, inc:2,   e:"reps", pause:120},
+    {n:"Rumensk markløft", s:"3 × 10",   sett:3, lo:10, hi:12, inc:2,   e:"reps", pause:150},
+    {n:"Biceps / triceps", s:"2 × 12",   sett:2, lo:10, hi:14, inc:1,   e:"reps", pause:90},
+    {n:"Farmer's walk",    s:"3 × 40 m", sett:3, lo:30, hi:50, inc:2,   e:"m",    pause:120}
+  ]
+};
+
+const VANER = [
+  {id:"mat",     t:"Logget all mat"},
+  {id:"trening", t:"Beveget meg"},
+  {id:"sovn",    t:"Fast leggetid"}
+];
+
+const MAALEPUNKT = [
+  {id:"liv",   n:"Liv",      h:"I navlehøyde, avslappet mage, etter utpust"},
+  {id:"hofte", n:"Hofte",    h:"Bredeste punkt over setet"},
+  {id:"bryst", n:"Bryst",    h:"Over brystvortene, armer ned"},
+  {id:"arm",   n:"Overarm",  h:"Midt på biceps, avslappet arm"}
+];
+
+const MAT = [
+["Skyr naturell","100 g",63,11],["Cottage cheese","100 g",79,13],["Kesam mager","100 g",68,12],
+["Gresk yoghurt 2 %","100 g",73,9],["Egg, stort","stk",78,6.5],["Proteinpulver","30 g",115,24],
+["Proteinbar","stk",200,20],["Kyllingfilet, rå","100 g",106,23],["Kylling, stekt","100 g",165,31],
+["Kalkunfilet","100 g",105,22],["Kjøttdeig 5 %","100 g",121,21],["Kjøttdeig 14 %","100 g",199,18],
+["Karbonadedeig","100 g",130,20],["Biff / indrefilet","100 g",190,26],["Svinekotelett","100 g",210,22],
+["Grillpølse","stk",200,9],["Laks","100 g",208,20],["Torsk","100 g",82,18],
+["Makrell i tomat","100 g",190,14],["Tunfisk i vann","100 g",108,24],["Reker","100 g",99,21],
+["Norvegia","100 g",350,27],["Mager ost 16 %","100 g",250,31],["Brunost","100 g",466,9],
+["Lettmelk 1 %","100 ml",42,3.5],["Skummet melk","100 ml",35,3.5],["Havregryn","100 g",366,13],
+["Grovbrød","skive",85,3],["Knekkebrød","stk",35,1.2],["Ris, kokt","100 g",130,2.7],
+["Pasta, kokt","100 g",158,5.8],["Poteter, kokt","100 g",87,2],["Søtpotet","100 g",90,1.6],
+["Couscous, kokt","100 g",112,3.8],["Linser, kokt","100 g",116,9],["Kikerter","100 g",139,7.6],
+["Taco lefse","stk",100,3],["Brokkoli","100 g",34,2.8],["Blomkål","100 g",25,1.9],
+["Gulrot","100 g",41,0.9],["Tomat","100 g",18,0.9],["Agurk","100 g",15,0.7],
+["Paprika","100 g",31,1],["Salatblanding","100 g",17,1.4],["Løk","100 g",40,1.1],
+["Erter, frosne","100 g",81,5.4],["Mais","100 g",86,3.3],["Banan","stk",105,1.3],
+["Eple","stk",95,0.5],["Appelsin","stk",62,1.2],["Blåbær","100 g",57,0.7],
+["Jordbær","100 g",32,0.7],["Smør","10 g",72,0.1],["Olivenolje","ss",124,0],
+["Majones","ss",94,0.1],["Rømme 35 %","100 g",340,2.5],["Lettrømme 10 %","100 g",120,3],
+["Mandler","100 g",579,21],["Peanøttsmør","ss",94,4],["Melkesjokolade","100 g",535,7],
+["Potetgull","100 g",536,6],["Frossenpizza, halv","porsjon",480,19],["Kaffe, svart","kopp",2,0],
+["Brus med sukker","0,5 l",210,0],["Brus uten sukker","0,5 l",1,0],["Øl","0,33 l",140,1.5],
+["Rødvin","glass",125,0]
+].map(x=>({n:x[0],e:x[1],k:x[2],p:x[3]}));
+
+const ENHETER = ["100 g","100 ml","stk","porsjon","skive","ss","glass"];
+
+/* Innebygde varer + dine egne, i samme liste */
+function alleMat(){
+  return MAT.concat((S.egneMat||[]).map(m=>({n:m.n, e:m.e, k:m.k, p:m.p, egen:true})));
+}
+
+/* ═══ Banner ══════════════════════════════════════════════ */
+
+const MELDINGER = [
+"Vekta i dag er ett datapunkt. Linja gjennom dem er svaret.",
+"Dagen du ikke gidder er dagen som teller mest. Gjør halvparten av økta.",
+"Ingen enkeltmåltid har ødelagt noe. Det er uka som avgjør.",
+"45 kilo tar tid. At det går sakte er ikke en feil ved planen.",
+"Protein først på tallerkenen. Resten ordner seg av seg selv.",
+"Søvnen i natt bestemmer hvor sulten du er i morgen.",
+"Skrittene gjør mer over en måned enn treningsøktene gjør.",
+"Du bygger ikke bare vekttap. Du bygger kroppen som holder på det.",
+"Om ett år har du enten gjort dette eller ikke gjort det. Tiden går uansett.",
+"Måltidet du spiser hver dag betyr mer enn måltidet du spiser i bryllupet.",
+"Vekta står stille i uker om gangen. Det er slik det ser ut når det virker.",
+"Å veie seg er ikke en dom. Det er en avlesning.",
+"Styrkeøkta er ikke for å forbrenne. Den er for å beholde muskelen.",
+"To reps mer enn sist er progresjon. Det er nok for i dag.",
+"Du trenger ikke motivasjon i dag. Du trenger bare å åpne denne appen.",
+"Halv økt slår ingen økt, hver eneste gang.",
+"Sulten går over på tjue minutter. Beslutningen din varer lenger.",
+"Det er lettere å ikke kjøpe det enn å ikke spise det.",
+"Familien spiser det samme som deg. Bare tallerkenen er forskjellig.",
+"En dårlig dag er data, ikke nederlag. Logg den og gå videre.",
+"Det du gjør på tirsdager avgjør dette. Ikke det du gjør på nyttårsaften.",
+"Målebåndet ser ting vekta ikke ser.",
+"Ingen har angret på en tur de tok. Mange angrer på den de droppet.",
+"Vekt ned er lett. Vekt nede er jobben. Du trener på begge deler nå.",
+"Legg deg til samme tid i kveld. Det er dagens viktigste avgjørelse.",
+"Du er ikke på en diett. Du holder på å bli en som spiser slik.",
+"Rutine slår viljestyrke. Viljestyrken tar slutt rundt klokka ni om kvelden.",
+"Vei porsjonen i dag. Om åtte uker ser du det på øyemål.",
+"Tallene lyver ikke, men de trenger tid på seg.",
+"Gjør det kjedelig. Kjedelig er det som varer.",
+"Én økt gjør ingenting. Hundre økter gjør alt. Denne er én av dem.",
+"Du kommer til å ville slutte i februar. Planlegg for det nå.",
+"Det som ikke logges, blir ikke sett. Det gjelder også snacksen.",
+"Beinøvelsene er de kjedeligste og de viktigste. Slik er det bare.",
+"Tren i dag fordi du gjør det på mandager. Ikke fordi du er motivert.",
+"Kroppen tilpasser seg. Derfor må vekta på stanga endre seg også.",
+"Å gå fem minutter etter middag hjelper mer enn du tror.",
+"Vann først når du tror du er sulten. Ofte holder det.",
+"Du har ikke feilet før du slutter å logge.",
+"Restitusjon er ikke latskap. Muskelen bygges mellom øktene, ikke under.",
+"Sammenlign deg med deg selv for tre måneder siden. Ingen andre.",
+"En kilo i uka er urealistisk over tid. En halv er ikke det.",
+"Det er ingen målstrek her. Det er bare en ny måte å leve på.",
+"Frokosten du har spist i hundre dager er grunnen til at dette går.",
+"Perfekt uke finnes ikke. Sju av ti dager holder lenge.",
+"Du trenger ikke å ville dette i dag. Du trenger bare å gjøre det."
+];
+
+const DATADREVET = [
+  st => st.dager >= 14 ? "Dag "+st.dager+". Det er ikke motivasjon lenger, det er rutine." : null,
+  st => st.ned >= 3 ? "Du har lagt fra deg "+nk(st.ned)+" kg. Prøv å løfte det og legg det tilbake." : null,
+  st => st.rekke >= 7 ? st.rekke+" dager på rad. Ikke bryt den i dag." : null,
+  st => st.ned >= 10 ? "Ti kilo ned er en sekk sement du ikke lenger bærer opp trappa." : null,
+  st => st.dager >= 60 ? "To måneder inn. De fleste sluttet for lenge siden." : null
+];
+
+function dagensMelding(){
+  const d = new Date();
+  const nr = Math.floor(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())/86400000);
+  const st = { dager:dagerIGang(), ned:(forsteVekt()||0)-(sisteVekt()||0), rekke:Math.max(...VANER.map(v=>rekke(v.id)),0) };
+  if(nr % 4 === 0){
+    const treff = DATADREVET.map(f=>f(st)).filter(Boolean);
+    if(treff.length) return treff[nr % treff.length];
+  }
+  return MELDINGER[nr % MELDINGER.length];
+}
+/* ═══ Lagring: varig + sikkerhetskopi ═════════════════════ */
+
+async function beOmVarigLagring(){
+  try {
+    if(navigator.storage && navigator.storage.persist){
+      const alt = await navigator.storage.persisted();
+      if(!alt) await navigator.storage.persist();
+    }
+  } catch(e){ /* ikke støttet */ }
+}
+
+function backupForfalt(){
+  if(!S.sisteBackup) return dagerIGang() >= BACKUP_DAGER;
+  return dagerMellom(S.sisteBackup, idag()) >= BACKUP_DAGER;
+}
+
+function lastNed(navn, tekst, mime){
+  const blob = new Blob([tekst], {type:mime+";charset=utf-8"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = navn;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 2000);
+}
+
+function taBackup(){
+  const navn = "weightloss-" + idag() + ".json";
+  lastNed(navn, JSON.stringify(S), "application/json");
+  S.sisteBackup = idag();
+  lagre(); tegn();
+  varsle("Sikkerhetskopi lagret i Nedlastinger.");
+}
+
+function importer(fil){
+  const leser = new FileReader();
+  leser.onload = () => {
+    try {
+      const inn = migrer(JSON.parse(leser.result));
+      if(!inn || typeof inn !== "object" || !inn.vekt) throw new Error("format");
+      for(const felt of ["vekt","maltider","skritt","sovn","mal","okter","vaner","maler","favoritter"]){
+        S[felt] = Object.assign({}, inn[felt]||{}, S[felt]||{});
+      }
+      if(inn.maalKcal) S.maalKcal = inn.maalKcal;
+      lagre(); tegn();
+      varsle("Importert. Eksisterende dager ble beholdt.");
+    } catch(e){
+      varsle("Fila kunne ikke leses. Velg en weightloss-JSON.");
+    }
+  };
+  leser.readAsText(fil);
+}
+
+function byggCsv(){
+  const alle = new Set([].concat(
+    Object.keys(S.vekt), Object.keys(S.maltider), Object.keys(S.skritt),
+    Object.keys(S.sovn), Object.keys(S.mal), Object.keys(S.okter)));
+  const rader = ["dato;vekt;kcal;protein;skritt;sovn;liv;hofte;bryst;arm;okter"];
+  for(const d of [...alle].sort()){
+    const m = S.maltider[d]||[], mm = S.mal[d]||{};
+    const o = S.okter[d] ? Object.keys(S.okter[d]).join("+") : "";
+    rader.push([d, S.vekt[d]??"", m.length?dagensKcal(d):"", m.length?Math.round(dagensProt(d)):"",
+      S.skritt[d]??"", S.sovn[d]??"", mm.liv??"", mm.hofte??"", mm.bryst??"", mm.arm??"", o].join(";"));
+  }
+  return rader.join("\n");
+}
+
+let varselId = null;
+function varsle(tekst){
+  let n = $("varsel");
+  if(!n){
+    n = document.createElement("div");
+    n.id = "varsel";
+    n.style.cssText = "position:fixed;left:50%;transform:translateX(-50%);bottom:20px;"+
+      "background:var(--ink);color:var(--paper);padding:11px 16px;font-size:13px;z-index:50;"+
+      "max-width:90%;text-align:center";
+    document.body.appendChild(n);
+  }
+  n.textContent = tekst;
+  clearTimeout(varselId);
+  varselId = setTimeout(()=>{ if(n.parentNode) n.remove(); }, 3200);
+}
+
+/* ═══ Små byggeklosser ════════════════════════════════════ */
+
+function maaler(navn, verdi, maal, enhet, farge, nokErNok, des){
+  des = des||0;
+  const pst = Math.min(100, (verdi/maal)*100);
+  const over = verdi > maal && !nokErNok;
+  return `<div>
+    <div class="mellom">
+      <span class="etikett">${navn.toUpperCase()}</span>
+      <span class="mono" style="font-size:14px">${nk(verdi,des)}<span style="color:var(--mute)"> / ${nk(maal,des)} ${enhet}</span></span>
+    </div>
+    <div class="spor"><i style="width:${pst}%;background:${over?"var(--warn)":farge}"></i></div>
+  </div>`;
+}
+
+function tallFelt(id, plassholder, verdi, act, desimal){
+  return `<div class="flex" style="gap:6px">
+    <input class="felt mono" id="${id}" inputmode="${desimal?"decimal":"numeric"}"
+      placeholder="${verdi!==undefined&&verdi!==null?esc(nk(verdi,desimal?1:0)):plassholder}"
+      data-enter="${act}">
+    <button class="knapp" style="flex:0 0 auto;padding:10px 12px" data-act="${act}" data-felt="${id}">OK</button>
+  </div>`;
+}
+
+function kurve(sr){
+  const B=320,H=190,mv=34,mh=10,mt=14,mb=22;
+  const siste = sr[sr.length-1];
+  const maks = Math.max(...sr.map(p=>p.kg))+1;
+  const min = Math.min(MAAL_VEKT, ...sr.map(p=>p.kg))-1;
+  const x = i => mv + (i/Math.max(1,sr.length-1))*(B-mv-mh);
+  const y = kg => mt + ((maks-kg)/(maks-min))*(H-mt-mb);
+  const yM = y(MAAL_VEKT), yN = y(siste.trend), xD = B-mh-4;
+  let g = "";
+  [maks,(maks+min)/2,min].forEach(kg=>{
+    g += `<line x1="${mv}" y1="${y(kg)}" x2="${B-mh}" y2="${y(kg)}" stroke="var(--hair)" stroke-width=".5"/>
+      <text x="${mv-5}" y="${y(kg)+3}" text-anchor="end" font-size="8" fill="var(--mute)" font-family="ui-monospace,monospace">${Math.round(kg)}</text>`;
+  });
+  g += `<line x1="${mv}" y1="${yM}" x2="${B-mh}" y2="${yM}" stroke="var(--signal)" stroke-width="1" stroke-dasharray="5 3"/>
+    <text x="${mv+2}" y="${yM-4}" font-size="8" fill="var(--signal)" font-family="ui-monospace,monospace" letter-spacing=".1em">MÅL ${MAAL_VEKT}</text>`;
+  sr.forEach((p,i)=>{ g += `<line x1="${x(i)}" y1="${y(p.kg)-2.5}" x2="${x(i)}" y2="${y(p.kg)+2.5}" stroke="var(--hair)" stroke-width="1.2"/>`; });
+  g += `<path d="${sr.map((p,i)=>(i?"L":"M")+x(i)+","+y(p.trend)).join(" ")}" fill="none" stroke="var(--steel)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+    <circle cx="${x(sr.length-1)}" cy="${yN}" r="3.5" fill="var(--steel)"/>`;
+  if(siste.trend > MAAL_VEKT+0.5){
+    g += `<line x1="${xD}" y1="${yN}" x2="${xD}" y2="${yM}" stroke="var(--ink)" stroke-width=".7"/>
+      <path d="M${xD-3},${yN+4} L${xD},${yN} L${xD+3},${yN+4}" fill="none" stroke="var(--ink)" stroke-width=".7"/>
+      <path d="M${xD-3},${yM-4} L${xD},${yM} L${xD+3},${yM-4}" fill="none" stroke="var(--ink)" stroke-width=".7"/>
+      <text x="${xD-6}" y="${(yN+yM)/2+3}" text-anchor="end" font-size="9" fill="var(--ink)" font-family="ui-monospace,monospace">${nk(siste.trend-MAAL_VEKT)} kg</text>`;
+  }
+  g += `<text x="${mv}" y="${H-6}" font-size="8" fill="var(--mute)" font-family="ui-monospace,monospace">${kort(sr[0].dato)}</text>
+    <text x="${B-mh}" y="${H-6}" text-anchor="end" font-size="8" fill="var(--mute)" font-family="ui-monospace,monospace">${kort(siste.dato)}</text>`;
+  return `<svg viewBox="0 0 ${B} ${H}" style="margin-top:12px" role="img" aria-label="Vekttrend">${g}</svg>`;
+}
+
+function forslag(ov, forr){
+  if(!forr || !forr.length) return null;
+  const maksKg = Math.max(...forr.map(s=>s.kg));
+  const rel = forr.filter(s=>s.kg===maksKg);
+  const minR = Math.min(...rel.map(s=>s.reps));
+  const topp = rel.length >= ov.sett && minR >= ov.hi;
+  if(topp && ov.inc>0) return {kg:maksKg+ov.inc, reps:ov.lo, opp:true};
+  if(topp) return {kg:maksKg, reps:minR+5, opp:true};
+  return {kg:maksKg, reps:Math.min(minR+1, ov.hi), opp:false};
+}
+/* ═══ Fokus ═══════════════════════════════════════════════ */
+
+function vFokus(){
+  const d = idag(), t = new Date().getHours();
+  const k = dagensKcal(d), p = dagensProt(d);
+  const veid = S.vekt[d] !== undefined;
+  const ukedag = new Date().getDay();       // 0 sø … 3 on
+  const trent = S.okter[d] && Object.keys(S.okter[d]).length;
+  let h = "";
+
+  h += `<div class="banner">
+    <span class="etikett" style="color:var(--mute)">I DAG</span>
+    <p>${esc(dagensMelding())}</p>
+  </div>`;
+
+  if(backupForfalt()){
+    h += `<div class="varsel">
+      <span class="etikett">SIKKERHETSKOPI</span>
+      <p class="hjelp" style="margin-top:6px">Det er over en uke siden sist. Ett trykk lagrer en fil i Nedlastinger.</p>
+      <button class="knapp stor" style="margin-top:10px" data-act="backup">Ta sikkerhetskopi</button>
+    </div>`;
+  }
+
+  /* Neste handling */
+  let tittel, tekst, knapp, mal;
+  if(!veid && t < 12){
+    tittel = "VEI DEG";  tekst = "Etter toalett, før frokost.";
+    knapp = "Åpne vekt"; mal = "kropp";
+  } else if(ukedag===3 && !trent){
+    tittel = "GYMSAL I DAG"; tekst = "Onsdag. Logg økta etterpå.";
+    knapp = "Åpne trening"; mal = "trening";
+  } else if((ukedag===1||ukedag===4) && !trent){
+    tittel = "STYRKEØKT I DAG"; tekst = ukedag===1 ? "Økt A står for tur." : "Økt B står for tur.";
+    knapp = "Start økt"; mal = "trening";
+  } else if(k === 0){
+    tittel = "INGENTING LOGGET"; tekst = "Første måltid setter tonen for dagen.";
+    knapp = "Legg til mat"; mal = "dag";
+  } else if(p < MAAL_PROT*0.6 && t >= 15){
+    tittel = "PROTEIN LIGGER LAVT"; tekst = `${Math.round(MAAL_PROT-p)} g igjen. Skyr, kesam eller en shake tar unna mye.`;
+    knapp = "Legg til mat"; mal = "dag";
+  } else if(!S.vaner[d] || Object.keys(S.vaner[d]).length < 3){
+    tittel = "KRYSS AV DAGEN"; tekst = "Tre vaner. Ti sekunder.";
+    knapp = "Åpne vaner"; mal = "vaner";
+  } else {
+    tittel = "DAGEN ER I ORDEN"; tekst = "Ingenting mer som haster. Legg deg til vanlig tid.";
+    knapp = "Se uka"; mal = "uke";
+  }
+
+  h += `<section class="kort">
+    <span class="etikett">${tittel}</span>
+    <p class="hjelp" style="margin-top:6px">${esc(tekst)}</p>
+    <button class="knapp stor" style="margin-top:12px" data-act="gaTil" data-fane="${mal}">${knapp}</button>
+  </section>`;
+
+  /* Status i dag */
+  h += `<section class="kort">
+    ${maaler("Kalorier", k, maalKcal(), "kcal", "var(--steel)")}
+    <div style="height:14px"></div>
+    ${maaler("Protein", Math.round(p), MAAL_PROT, "g", "var(--signal)")}
+    <div style="height:14px"></div>
+    ${maaler("Skritt", S.skritt[d]||0, MAAL_SKRITT, "", "var(--steel)", true)}
+    <div style="height:14px"></div>
+    ${maaler("Søvn", S.sovn[d]||0, MAAL_SOVN, "t", "var(--signal)", true, 1)}
+  </section>`;
+
+  /* Hurtiglogg */
+  h += `<section class="kort">
+    <span class="etikett">HURTIGLOGG</span>
+    <div class="flex" style="margin-top:12px">
+      ${tallFelt("f_vekt","kg", S.vekt[d], "settVekt", true)}
+    </div>
+    <div class="flex" style="margin-top:8px">
+      ${tallFelt("f_skritt","skritt", S.skritt[d], "settSkritt")}
+      ${tallFelt("f_sovn","søvn t", S.sovn[d], "settSovn", true)}
+    </div>
+  </section>`;
+
+  return h;
+}
+
+/* ═══ Dag ═════════════════════════════════════════════════ */
+
+let sokTekst = "", valgtMat = null, egenModus = false, malModus = false;
+
+function vDag(){
+  const d = idag();
+  const dagens = S.maltider[d] || [];
+  let h = "";
+
+  h += `<section class="kort">
+    ${maaler("Kalorier", dagensKcal(d), maalKcal(), "kcal", "var(--steel)")}
+    <div style="height:14px"></div>
+    ${maaler("Protein", Math.round(dagensProt(d)), MAAL_PROT, "g", "var(--signal)")}
+  </section>`;
+
+  /* Matsøk */
+  h += `<section class="kort"><div class="mellom">
+    <span class="etikett">LEGG TIL MAT</span>
+    <button class="lenke" data-act="byttModus">${egenModus?"Søk i listen":"Skriv inn selv"}</button>
+  </div>`;
+
+  if(egenModus){
+    h += `<input class="felt" id="e_navn" placeholder="Navn på matvaren" style="margin-top:12px">
+      <div class="flex" style="margin-top:8px">
+        <input class="felt mono" id="e_k" inputmode="numeric" placeholder="kcal">
+        <input class="felt mono" id="e_p" inputmode="decimal" placeholder="protein g">
+        <select class="felt" id="e_e" style="flex:0 0 96px">` +
+        ENHETER.map(x=>`<option value="${x}">${x}</option>`).join("") + `</select>
+      </div>
+      <p class="hjelp" style="margin-top:8px">Tallene gjelder per enheten du velger.
+        Står det per 100 g på pakken, la den stå på 100 g.</p>
+      <div class="flex" style="margin-top:10px">
+        <button class="knapp stille" data-act="leggEngangs">Bare i dag</button>
+        <button class="knapp" data-act="lagreEgenMat">Lagre i listen</button>
+      </div>`;
+  } else if(valgtMat){
+    const m = valgtMat;
+    const per100 = m.e==="100 g" || m.e==="100 ml";
+    h += `<div style="margin-top:12px"><div class="mellom">
+      <strong style="font-size:15px">${esc(m.n)}</strong>
+      <button class="lenke" data-act="nullstillMat">Bytt</button></div>
+      <div class="mono" style="font-size:11.5px;color:var(--mute);margin-top:3px">
+        ${m.k} kcal · ${nk(m.p)} g protein per ${m.e}</div>
+      <div class="flex" style="margin-top:10px;align-items:center">
+        <input class="felt mono" id="m_mengde" inputmode="decimal" value="${per100?100:1}"
+          data-enter="leggValgt" style="flex:0 0 92px">
+        <span class="mono" style="font-size:12.5px;color:var(--mute)">${per100?(m.e==="100 g"?"gram":"ml"):m.e}</span>
+        <button class="knapp" style="flex:0 0 auto" data-act="leggValgt">Legg til</button>
+      </div></div>`;
+  } else {
+    const q = sokTekst.trim().toLowerCase();
+    let treff;
+    const kilde = alleMat();
+    if(q) treff = kilde.filter(m=>m.n.toLowerCase().includes(q)).slice(0,10);
+    else {
+      const topp = Object.entries(S.favoritter).sort((a,b)=>b[1]-a[1]).slice(0,6).map(x=>x[0]);
+      treff = kilde.filter(m=>topp.some(t=>t.indexOf(m.n)===0));
+    }
+    h += `<input class="felt" id="sok" placeholder="Søk — kylling, skyr, brød …"
+      value="${esc(sokTekst)}" data-sok="1" style="margin-top:12px">`;
+    if(treff.length){
+      h += `<ul class="rein">` + treff.map(m=>`<li class="rad" style="padding:0">
+        <button class="matrad" data-act="velgMat" data-navn="${esc(m.n)}">
+          <span style="flex:1">${esc(m.n)}</span>
+          <span class="mono" style="font-size:11.5px;color:var(--mute)">${m.k} / ${nk(m.p,0)} g · ${m.e}${m.egen?" · egen":""}</span>
+        </button></li>`).join("") + `</ul>`;
+    } else if(q){
+      h += `<p class="tom">Ingen treff. Trykk «Skriv inn selv».</p>`;
+    }
+  }
+  h += `</section>`;
+
+  /* Egne matvarer */
+  if(S.egneMat.length){
+    h += `<section class="kort"><span class="etikett">EGNE MATVARER</span><ul class="rein">` +
+      S.egneMat.map((m,i)=>`<li class="rad">
+        <button class="matrad" style="padding:0" data-act="velgMat" data-navn="${esc(m.n)}">
+          <span style="flex:1">${esc(m.n)}</span>
+          <span class="mono" style="font-size:11.5px;color:var(--mute)">${m.k} / ${nk(m.p,0)} g · ${m.e}</span>
+        </button>
+        <button class="fjern" data-act="slettEgenMat" data-i="${i}" aria-label="Slett">×</button></li>`).join("") +
+      `</ul></section>`;
+  }
+
+  /* Maler */
+  const malNavn = Object.keys(S.maler);
+  h += `<section class="kort"><div class="mellom">
+    <span class="etikett">MÅLTIDSMALER</span>
+    <button class="lenke" data-act="byttMal" ${dagens.length?"":"disabled"}>${malModus?"Avbryt":"Lagre dagens"}</button>
+  </div>`;
+  if(malModus){
+    h += `<div class="flex" style="margin-top:10px">
+      <input class="felt" id="mal_navn" placeholder="Navn, f.eks. Standard frokost" data-enter="lagreMal">
+      <button class="knapp" style="flex:0 0 auto" data-act="lagreMal">Lagre</button></div>`;
+  }
+  if(!malNavn.length){
+    h += `<p class="tom">Logg et måltid du spiser ofte og lagre det som mal. Neste gang er det ett trykk.</p>`;
+  } else {
+    h += `<ul class="rein">` + malNavn.map(n=>{
+      const k = S.maler[n].reduce((a,m)=>a+m.k,0), p = S.maler[n].reduce((a,m)=>a+m.p,0);
+      return `<li class="rad">
+        <button class="matrad" style="padding:0" data-act="brukMal" data-navn="${esc(n)}">
+          <span style="flex:1">${esc(n)}</span>
+          <span class="mono" style="font-size:11.5px;color:var(--mute)">${k} kcal · ${nk(p,0)} g</span>
+        </button>
+        <button class="fjern" data-act="slettMal" data-navn="${esc(n)}" aria-label="Slett">×</button></li>`;
+    }).join("") + `</ul>`;
+  }
+  h += `</section>`;
+
+  /* Skritt og søvn */
+  h += `<section class="kort">
+    <span class="etikett">SKRITT OG SØVN</span>
+    <div class="flex" style="margin-top:12px">
+      ${tallFelt("d_skritt","skritt", S.skritt[d], "settSkritt")}
+      ${tallFelt("d_sovn","timer søvn", S.sovn[d], "settSovn", true)}
+    </div>
+  </section>`;
+
+  /* Spist i dag */
+  h += `<section class="kort"><span class="etikett">SPIST I DAG</span>`;
+  if(!dagens.length) h += `<p class="tom">Ingenting logget ennå.</p>`;
+  else h += `<ul class="rein">` + dagens.map((m,i)=>`<li class="rad">
+      <span style="flex:1">${esc(m.n)}</span>
+      <span class="mono" style="font-size:12.5px;color:var(--mute)">${m.k} kcal · ${nk(m.p,0)} g</span>
+      <button class="fjern" data-act="fjernMat" data-i="${i}" aria-label="Fjern">×</button></li>`).join("") + `</ul>`;
+  h += `</section>`;
+
+  return h;
+}
+/* ═══ Kropp ═══════════════════════════════════════════════ */
+
+function vKropp(){
+  const d = idag(), sr = serie();
+  let h = "";
+
+  h += `<section class="kort">
+    <span class="etikett">VEI DEG</span>
+    <p class="hjelp" style="margin-top:6px">Samme tid hver morgen, etter toalett, før frokost.
+      Enkeltdager svinger 1–2 kg på vann alene — det er trendlinja som forteller sannheten.</p>
+    <div style="margin-top:12px">${tallFelt("k_vekt","kg i dag", S.vekt[d], "settVekt", true)}</div>
+  </section>`;
+
+  h += `<section class="kort"><span class="etikett">TREND</span>`;
+  h += sr.length < 2 ? `<p class="tom">Diagrammet tegnes når du har to målinger.</p>` : kurve(sr);
+  h += `</section>`;
+
+  /* Milepæler */
+  h += `<section class="kort"><span class="etikett">MILEPÆLER</span>`;
+  const datoer = Object.keys(S.vekt).sort();
+  if(!datoer.length){
+    h += `<p class="tom">Legg inn første veiing, så settes delmålene opp.</p>`;
+  } else {
+    const start = S.vekt[datoer[0]], naa = S.vekt[datoer[datoer.length-1]];
+    const punkter = [];
+    for(let m = Math.floor(start/5)*5 - 5; m >= MAAL_VEKT; m -= 5) punkter.push(m);
+    if(start > 100 && punkter.indexOf(100) < 0) punkter.push(100);
+    punkter.sort((a,b)=>b-a);
+    const naadd = m => datoer.find(x => S.vekt[x] <= m);
+    const neste = punkter.find(m => !naadd(m));
+    if(neste !== undefined)
+      h += `<p class="hjelp" style="margin-top:6px">Neste: <strong style="color:var(--ink)">${neste} kg</strong> — ${nk(naa-neste)} kg unna.</p>`;
+    h += `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px">` + punkter.map(m=>{
+      const dd = naadd(m), er = m===neste;
+      return `<span class="brikke mono" style="font-size:12px;
+        background:${dd?"var(--signal)":"#FFF"};color:${dd?"#FFF":er?"var(--ink)":"var(--mute)"};
+        border-color:${dd?"var(--signal)":er?"var(--ink)":"var(--hair)"}">
+        ${m}${m===MAAL_VEKT?" ★":""}${dd?" · "+kort(dd):""}</span>`;
+    }).join("") + `</div>`;
+  }
+  h += `</section>`;
+
+  /* Målebånd */
+  const mDatoer = Object.keys(S.mal).sort();
+  const hent = (id, liste) => { for(const x of liste) if(S.mal[x] && S.mal[x][id]!==undefined) return {d:x, v:S.mal[x][id]}; return null; };
+  h += `<section class="kort"><span class="etikett">MÅLEBÅND</span>
+    <p class="hjelp" style="margin-top:6px">Mål én gang i uka, samme dag, om morgenen.
+      Livmålet er det viktigste — det krymper ofte i perioder der vekta står helt stille.</p>
+    <div style="margin-top:14px">`;
+  for(const mp of MAALEPUNKT){
+    const st = hent(mp.id, mDatoer), na = hent(mp.id, [...mDatoer].reverse());
+    const endring = (st && na && st.d !== na.d) ? na.v - st.v : null;
+    h += `<div style="border-top:1px solid var(--hair);padding:12px 0">
+      <div class="mellom"><strong style="font-size:14.5px">${mp.n}</strong>
+        <span class="mono" style="font-size:13px">
+          ${na ? nk(na.v)+" cm" : '<span style="color:var(--mute)">ikke målt</span>'}
+          ${endring!==null ? `<span style="color:${endring<0?"var(--signal)":"var(--mute)"};margin-left:8px">${endring<0?"−":"+"}${nk(Math.abs(endring))}</span>` : ""}
+        </span></div>
+      <div class="hjelp" style="font-size:11.5px;margin-top:2px">${mp.h}</div>
+      <div style="margin-top:8px">${tallFelt("mb_"+mp.id, "cm", S.mal[d]&&S.mal[d][mp.id], "settMaal_"+mp.id, true)}</div>
+    </div>`;
+  }
+  h += `</div></section>`;
+  return h;
+}
+
+/* ═══ Trening ═════════════════════════════════════════════ */
+
+let treningType = "A";
+
+function forrigeOkt(type){
+  const d = Object.keys(S.okter).filter(x => x < idag() && S.okter[x][type]).sort();
+  return d.length ? S.okter[d[d.length-1]][type] : null;
+}
+
+function vTrening(){
+  const d = idag();
+  const alle = S.okter[d] || {};
+  const okt = alle[treningType] || {};
+  const forr = forrigeOkt(treningType);
+  let h = "";
+
+  h += `<section class="kort"><div style="display:flex;gap:6px;flex-wrap:wrap">` +
+    [["A","Økt A"],["B","Økt B"],["gym","Gymsal"],["sykkel","Sykkel"]].map(x=>
+      `<button class="knapp" style="flex:1 1 auto;padding:11px 8px;background:${treningType===x[0]?"var(--ink)":"transparent"};
+        color:${treningType===x[0]?"var(--paper)":"var(--ink)"};border:1px solid var(--ink)"
+        data-act="settType" data-type="${x[0]}">${x[1]}</button>`).join("") + `</div>`;
+  if(treningType==="A"||treningType==="B")
+    h += `<p class="hjelp" style="margin-top:12px">Stopp hvert sett med 2–3 reps igjen på tanken.
+      Forslaget under hver øvelse regnes ut fra forrige økt.</p>`;
+  h += `</section>`;
+
+  h += `<div id="urplass"></div>`;
+
+  if(treningType==="A" || treningType==="B"){
+    for(const ov of PROGRAM[treningType]){
+      const sett = (okt.sett && okt.sett[ov.n]) || [];
+      const f = forslag(ov, forr && forr.sett && forr.sett[ov.n]);
+      const id = ov.n.replace(/[^a-zA-Z]/g,"");
+      h += `<section class="kort">
+        <div class="mellom"><strong style="font-size:15px">${ov.n}</strong>
+          <span class="mono" style="font-size:11px;color:var(--mute)">${ov.s}</span></div>`;
+      if(f){
+        h += `<button class="forslag" style="border-color:${f.opp?"var(--signal)":"var(--hair)"}"
+          data-act="brukForslag" data-id="${id}" data-kg="${f.kg}" data-reps="${f.reps}">
+          <span class="mono" style="font-size:12.5px;color:${f.opp?"var(--signal)":"var(--ink)"}">
+            ${f.opp?"↑ ":""}Foreslått: ${nk(f.kg)} kg × ${f.reps} ${ov.e==="reps"?"":ov.e}</span>
+          <span class="mono" style="font-size:11px;color:var(--mute)">fyll inn</span></button>`;
+      } else {
+        h += `<div class="mono" style="font-size:11px;color:var(--mute);margin-top:4px">Ingen tidligere logg — start lett.</div>`;
+      }
+      h += `<div class="flex" style="margin-top:10px;gap:6px">
+        <input class="felt mono" id="kg_${id}" inputmode="decimal" placeholder="kg" style="flex:0 0 76px">
+        <input class="felt mono" id="rp_${id}" inputmode="numeric" placeholder="${ov.e}" style="flex:0 0 76px"
+          data-enter="loggSett_${id}">
+        <button class="knapp" data-act="loggSett" data-ov="${esc(ov.n)}" data-id="${id}" data-pause="${ov.pause}">Lagre sett</button>
+      </div>`;
+      if(sett.length)
+        h += `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">` +
+          sett.map(s=>`<span class="brikke mono" style="font-size:12px">${nk(s.kg)} × ${s.reps}</span>`).join("") + `</div>`;
+      h += `</section>`;
+    }
+
+    /* Volum */
+    const bøtter = {};
+    for(const [dato,o] of Object.entries(S.okter)){
+      const oo = o[treningType];
+      if(!oo || !oo.sett) continue;
+      const dt = new Date(dato), man = new Date(dt);
+      man.setDate(dt.getDate() - ((dt.getDay()+6)%7));
+      let v = 0;
+      for(const s of Object.values(oo.sett)) for(const x of s) v += x.kg*x.reps;
+      const n = iso(man); bøtter[n] = (bøtter[n]||0) + v;
+    }
+    const uker = Object.entries(bøtter).sort().slice(-8);
+    h += `<section class="kort"><span class="etikett">VOLUM, ØKT ${treningType}</span>`;
+    if(uker.length < 2){
+      h += `<p class="tom">Grafen tegnes når du har trent to uker.</p>`;
+    } else {
+      const maks = Math.max(...uker.map(u=>u[1])), B=320, H=120, bw=(B-8)/uker.length;
+      h += `<p class="hjelp" style="margin-top:6px">Total løftet vekt per uke. Så lenge denne stiger,
+        beholder du muskelen mens fettet går.</p>
+        <svg viewBox="0 0 ${B} ${H}" style="margin-top:12px" role="img" aria-label="Ukentlig volum">` +
+        uker.map((u,i)=>{
+          const hh = (u[1]/maks)*(H-30);
+          return `<rect x="${i*bw+4}" y="${H-18-hh}" width="${bw-8}" height="${hh}" fill="var(--steel)"/>
+            <text x="${i*bw+bw/2}" y="${H-6}" text-anchor="middle" font-size="8" fill="var(--mute)" font-family="ui-monospace,monospace">${kort(u[0])}</text>`;
+        }).join("") + `</svg>
+        <div class="mono" style="font-size:11.5px;color:var(--mute)">Siste uke: ${tall(uker[uker.length-1][1])} kg totalt</div>`;
+    }
+    h += `</section>`;
+  }
+
+  if(treningType==="gym"){
+    h += `<section class="kort"><span class="etikett">GYMSAL, ONSDAG</span>`;
+    if(forr && forr.notat) h += `<div class="hjelp" style="margin-top:6px">Sist: ${esc(forr.notat)}</div>`;
+    h += `<textarea class="felt" id="gym_notat" style="margin-top:10px;min-height:70px;resize:vertical"
+      placeholder="Hva gjorde dere?" data-blur="lagreGym">${esc(okt.notat||"")}</textarea>
+      <div class="etikett" style="margin-top:14px;color:var(--mute)">HVOR HARDT — 1 TIL 10</div>
+      <div style="display:flex;gap:4px;margin-top:8px;flex-wrap:wrap">` +
+      [1,2,3,4,5,6,7,8,9,10].map(n=>`<button class="brikke mono" style="flex:1;min-width:26px;padding:9px 0;
+        text-align:center;background:${okt.rpe===n?"var(--ink)":"#FFF"};color:${okt.rpe===n?"var(--paper)":"var(--ink)"}"
+        data-act="settRpe" data-n="${n}">${n}</button>`).join("") + `</div>
+      <p class="hjelp" style="margin-top:10px">Ligger du på 9–10 hver uke, er det for mye ved siden av styrkeøktene.</p>
+      </section>`;
+  }
+
+  if(treningType==="sykkel"){
+    h += `<section class="kort"><span class="etikett">ERGOMETERSYKKEL</span>
+      <div class="flex" style="margin-top:12px">
+        ${tallFelt("sy_min","minutter", okt.min, "settSykMin")}
+        ${tallFelt("sy_mot","motstand", okt.motstand, "settSykMot")}
+      </div>
+      <div class="flex" style="margin-top:8px">
+        ${tallFelt("sy_puls","snittpuls", okt.puls, "settSykPuls")}
+        <div></div>
+      </div>
+      <p class="hjelp" style="margin-top:10px">Samme motstand med lavere puls betyr at formen er bedre —
+        det skjer lenge før vekta viser det.</p></section>`;
+    const hist = Object.entries(S.okter).filter(x=>x[1].sykkel && x[1].sykkel.min).sort().slice(-6).reverse();
+    if(hist.length){
+      h += `<section class="kort"><span class="etikett">SISTE ØKTER</span><ul class="rein">` +
+        hist.map(x=>`<li class="rad"><span class="mono" style="font-size:12.5px;flex:1">${kort(x[0])}</span>
+          <span class="mono" style="font-size:12.5px;color:var(--mute)">${nk(x[1].sykkel.min,0)} min${
+          x[1].sykkel.motstand?" · motst. "+nk(x[1].sykkel.motstand,0):""}${
+          x[1].sykkel.puls?" · "+nk(x[1].sykkel.puls,0)+" slag":""}</span></li>`).join("") +
+        `</ul></section>`;
+    }
+  }
+  return h;
+}
+/* ═══ Uke ═════════════════════════════════════════════════ */
+
+function vindu(fra, til){
+  const datoer = [];
+  for(let i = til; i < fra; i++) datoer.push(forSiden(i));
+  const medMat = datoer.filter(d => (S.maltider[d]||[]).length);
+  return {
+    vekt:   snitt(datoer.filter(d=>S.vekt[d]!==undefined).map(d=>S.vekt[d])),
+    kcal:   snitt(medMat.map(dagensKcal)),
+    prot:   snitt(medMat.map(dagensProt)),
+    skritt: snitt(datoer.filter(d=>S.skritt[d]!==undefined).map(d=>S.skritt[d])),
+    sovn:   snitt(datoer.filter(d=>S.sovn[d]!==undefined).map(d=>S.sovn[d])),
+    okter:  datoer.filter(d=>S.okter[d] && Object.keys(S.okter[d]).length).length,
+    logget: medMat.length
+  };
+}
+
+function adaptiv(){
+  const vD = Object.keys(S.vekt).sort();
+  if(vD.length < 2) return null;
+  const fra = forSiden(27);
+  const brukt = vD.filter(d => d >= fra);
+  if(brukt.length < 2) return null;
+  const dager = dagerMellom(brukt[0], brukt[brukt.length-1]);
+  if(dager < 14) return {forFa:true, dager};
+
+  const sn = l => snitt(l.map(d=>S.vekt[d]));
+  const startV = sn(brukt.slice(0, Math.min(3, brukt.length)));
+  const sluttV = sn(brukt.slice(-Math.min(3, brukt.length)));
+
+  const matDager = [];
+  for(let i=0; i<=dager; i++){
+    const d = iso(new Date(new Date(brukt[0]).getTime() + i*86400000));
+    if((S.maltider[d]||[]).length) matDager.push(dagensKcal(d));
+  }
+  if(matDager.length < 10) return {forFaMat:true, antall:matDager.length};
+
+  const inntak = snitt(matDager);
+  return {
+    forbruk: inntak - ((sluttV - startV) * KCAL_PER_KG) / dager,
+    inntak, dager, endring: sluttV - startV,
+    perUke: ((startV - sluttV) / dager) * 7,
+    dekning: matDager.length / (dager + 1)
+  };
+}
+
+function vUke(){
+  const na = vindu(7,0), forr = vindu(14,7);
+  let h = "";
+
+  const rader = [
+    ["Snittvekt", na.vekt, forr.vekt, "kg", 1, "ned"],
+    ["Kalorier",  na.kcal, forr.kcal, "kcal", 0, null],
+    ["Protein",   na.prot, forr.prot, "g", 0, "opp"],
+    ["Skritt",    na.skritt, forr.skritt, "", 0, "opp"],
+    ["Søvn",      na.sovn, forr.sovn, "t", 1, "opp"]
+  ];
+
+  h += `<section class="kort"><span class="etikett">SISTE 7 DAGER</span>
+    <p class="hjelp" style="margin-top:6px">Uka er den riktige tidsenheten. Enkeltdager sier nesten ingenting.</p>
+    <div style="margin-top:12px">`;
+  for(const r of rader){
+    const diff = (r[1]!==null && r[2]!==null) ? r[1]-r[2] : null;
+    const bra = diff===null ? null : (r[5]==="ned" ? diff<0 : r[5]==="opp" ? diff>0 : null);
+    h += `<div class="rad"><span style="flex:1">${r[0]}</span>
+      <span class="mono" style="font-size:13px">${r[1]===null?'<span style="color:var(--mute)">–</span>':nk(r[1],r[4])+" "+r[3]}</span>
+      <span class="mono" style="font-size:11.5px;width:62px;text-align:right;color:${
+        bra===null?"var(--mute)":bra?"var(--signal)":"var(--warn)"}">${
+        diff===null?"":(diff>0?"+":"−")+nk(Math.abs(diff), r[4])}</span></div>`;
+  }
+  h += `<div class="rad"><span style="flex:1">Økter</span>
+      <span class="mono" style="font-size:13px">${na.okter}</span>
+      <span class="mono" style="font-size:11.5px;width:62px;text-align:right;color:var(--mute)">forrige ${forr.okter}</span></div>
+    <div class="rad"><span style="flex:1">Dager med matlogg</span>
+      <span class="mono" style="font-size:13px;color:${na.logget>=6?"var(--signal)":"var(--warn)"}">${na.logget} / 7</span>
+      <span style="width:62px"></span></div>
+    </div></section>`;
+
+  /* Adaptiv kalori */
+  const a = adaptiv();
+  h += `<section class="kort"><span class="etikett">DITT FAKTISKE FORBRUK</span>`;
+  if(!a){
+    h += `<p class="tom">Etter to uker med veiing og matlogg regner appen ut hva du faktisk forbrenner,
+      i stedet for å bruke en formel.</p>`;
+  } else if(a.forFa){
+    h += `<p class="tom">Trenger minst 14 dager mellom første og siste veiing. Du har ${a.dager}.</p>`;
+  } else if(a.forFaMat){
+    h += `<p class="tom">Trenger minst 10 dager med matlogg i perioden. Du har ${a.antall}.</p>`;
+  } else {
+    const anbefalt = Math.round((a.forbruk - 650)/25)*25;
+    h += `<div class="mono" style="font-size:34px;margin-top:10px;letter-spacing:-.02em">${tall(a.forbruk)}
+        <span style="font-size:14px;color:var(--mute);margin-left:6px">kcal/dag</span></div>
+      <p class="hjelp" style="margin-top:8px">Regnet ut fra ${a.dager} dager: du spiste ${tall(a.inntak)} kcal
+        i snitt og endret deg ${a.endring<0?"−":"+"}${nk(Math.abs(a.endring))} kg.
+        Det gir ${nk(Math.abs(a.perUke))} kg ${a.perUke>0?"ned":"opp"} per uke.</p>`;
+    if(a.dekning < 0.7)
+      h += `<p class="hjelp" style="margin-top:8px;color:var(--warn)">Du logget mat
+        ${Math.round(a.dekning*100)} % av dagene. Tallet blir mer treffsikkert jo tettere du logger.</p>`;
+    h += `<div style="border-top:1px solid var(--hair);margin-top:14px;padding-top:14px">
+      <div class="mellom"><span class="etikett">ANBEFALT MÅL</span>
+        <span class="mono" style="font-size:15px">${tall(anbefalt)} kcal</span></div>
+      <p class="hjelp" style="margin-top:6px">Gir omtrent 0,6 kg ned i uka.
+        Nåværende mål er ${tall(maalKcal())} kcal.</p>`;
+    if(anbefalt !== maalKcal())
+      h += `<button class="knapp stor" style="margin-top:10px" data-act="settMaalKcal" data-v="${anbefalt}">
+        Sett målet til ${tall(anbefalt)} kcal</button>`;
+    h += `</div>`;
+  }
+  h += `</section>`;
+
+  /* Sikkerhetskopi */
+  h += `<section class="kort"><span class="etikett">SIKKERHETSKOPI</span>
+    <p class="hjelp" style="margin-top:6px">Lagrer en JSON-fil i Nedlastinger. Den ligger på telefonen
+      uavhengig av nettleseren, og kan legges i Google Drive.
+      ${S.sisteBackup ? "Sist: " + kort(S.sisteBackup) + "." : "Ikke tatt ennå."}</p>
+    <button class="knapp stor" style="margin-top:12px" data-act="backup">Ta sikkerhetskopi nå</button>
+    <div style="margin-top:8px">
+      <label class="knapp stille" style="display:block;text-align:center;padding:13px">
+        Gjenopprett fra fil
+        <input type="file" accept=".json,application/json" id="importfil" style="display:none">
+      </label></div>
+    <p class="hjelp" style="margin-top:8px">Gjenoppretting legger til dager som mangler.
+      Dager du allerede har logget beholdes som de er.</p>
+  </section>`;
+
+  /* CSV */
+  h += `<section class="kort"><span class="etikett">EKSPORT TIL EXCEL</span>
+    <p class="hjelp" style="margin-top:6px">Semikolondelt CSV som åpner rett i Excel.</p>
+    <button class="knapp stor" style="margin-top:12px" data-act="csv">Lag CSV-fil</button>
+  </section>`;
+
+  return h;
+}
+
+/* ═══ Vaner ═══════════════════════════════════════════════ */
+
+function vVaner(){
+  const d = idag(), dagens = S.vaner[d] || {};
+  let h = `<section class="kort"><span class="etikett">DE TRE SOM TELLER</span>
+    <p class="hjelp" style="margin-top:6px">Ikke flere enn disse de første fire ukene.
+      Vaner bygges én om gangen.</p><ul class="rein" style="margin-top:14px">`;
+  for(const v of VANER){
+    const av = !!dagens[v.id], r = rekke(v.id);
+    h += `<li class="rad" style="padding:12px 0">
+      <button class="kryss" aria-pressed="${av}" data-act="veksleVane" data-id="${v.id}">${av?"✓":""}</button>
+      <span style="flex:1;color:${av?"var(--ink)":"var(--mute)"}">${v.t}</span>
+      <span class="mono" style="font-size:12px;color:${r>0?"var(--signal)":"var(--mute)"}">${r} d</span></li>`;
+  }
+  h += `</ul></section>`;
+
+  const dg = dagerIGang();
+  if(dg > 0){
+    h += `<section class="kort"><span class="etikett">SÅ LANGT</span>
+      <div class="rad" style="border-top:none"><span style="flex:1">Dager i gang</span>
+        <span class="mono" style="font-size:14px">${dg}</span></div>
+      <div class="rad"><span style="flex:1">Veiinger</span>
+        <span class="mono" style="font-size:14px">${Object.keys(S.vekt).length}</span></div>
+      <div class="rad"><span style="flex:1">Økter totalt</span>
+        <span class="mono" style="font-size:14px">${Object.values(S.okter).reduce((a,o)=>a+Object.keys(o).length,0)}</span></div>
+    </section>`;
+  }
+  return h;
+}
+/* ═══ Tegning ═════════════════════════════════════════════ */
+
+const FANER = [["fokus","I dag"],["dag","Mat"],["kropp","Kropp"],["trening","Trening"],["uke","Uke"],["vaner","Vaner"]];
+
+function tegnTopp(){
+  const d = Object.keys(S.vekt).sort();
+  const siste = d.length ? S.vekt[d[d.length-1]] : null;
+  const forste = d.length ? S.vekt[d[0]] : null;
+  const ned = (siste!==null && forste!==null) ? forste-siste : 0;
+  $("topp").innerHTML = `<div class="mellom">
+      <span class="etikett" style="color:var(--mute)">WEIGHTLOSS</span>
+      <span class="mono" style="font-size:11px;color:var(--mute)">${kort(idag())}</span></div>
+    <div style="display:flex;align-items:flex-end;gap:14px;margin-top:10px">
+      <div class="stor">${siste!==null?nk(siste):"––,–"}<span style="font-size:15px;color:var(--mute);margin-left:4px">kg</span></div>
+      <div style="padding-bottom:4px">
+        <div class="mono" style="font-size:12px;color:${ned>0?"var(--signal)":"var(--mute)"}">${ned>0?"−"+nk(ned)+" kg totalt":"ingen endring ennå"}</div>
+        <div class="mono" style="font-size:12px;color:var(--mute)">${siste!==null?nk(siste-MAAL_VEKT)+" kg igjen":"mål "+MAAL_VEKT+" kg"}</div>
+      </div></div>`;
+}
+
+function tegnFaner(){
+  $("faner").innerHTML = FANER.map(f=>
+    `<button data-act="gaTil" data-fane="${f[0]}" aria-current="${fane===f[0]}">${f[1]}</button>`).join("");
+}
+
+function tegn(){
+  tegnTopp(); tegnFaner();
+  const v = {fokus:vFokus, dag:vDag, kropp:vKropp, trening:vTrening, uke:vUke, vaner:vVaner}[fane];
+  $("hoved").innerHTML = v();
+  if(fane==="trening" && urId) tegnUr();
+  const sok = $("sok");
+  if(sok && sokTekst){ sok.focus(); sok.setSelectionRange(sok.value.length, sok.value.length); }
+  const fil = $("importfil");
+  if(fil) fil.onchange = e => { if(e.target.files[0]) importer(e.target.files[0]); };
+}
+
+/* ═══ Hviletidsur ═════════════════════════════════════════ */
+
+function startUr(sek){
+  stoppUr();
+  urIgjen = sek;
+  urId = setInterval(()=>{
+    urIgjen--;
+    if(urIgjen <= 0){ urIgjen = 0; clearInterval(urId); urId = "ferdig"; }
+    tegnUr();
+  }, 1000);
+  tegnUr();
+}
+function stoppUr(){ if(urId && urId!=="ferdig") clearInterval(urId); urId = null; tegnUr(); }
+function tegnUr(){
+  const p = $("urplass");
+  if(!p) return;
+  if(!urId){ p.innerHTML = ""; return; }
+  const ferdig = urIgjen === 0;
+  const m = Math.floor(urIgjen/60), s = urIgjen % 60;
+  p.innerHTML = `<section class="kort ur" style="border-color:${ferdig?"var(--signal)":"var(--ink)"}">
+    <div class="tid" style="color:${ferdig?"var(--signal)":"var(--ink)"}">${m}:${String(s).padStart(2,"0")}</div>
+    <span class="hjelp" style="flex:1">${ferdig?"Klar for neste sett.":"Hvil. Pust ut skuldrene."}</span>
+    <button class="knapp stille" data-act="stoppUr">${ferdig?"Lukk":"Hopp over"}</button></section>`;
+}
+
+/* ═══ Handlinger ══════════════════════════════════════════ */
+
+function lesFelt(id){ const n = $(id); return n ? num(n.value) : null; }
+
+const HANDLING = {
+  gaTil: e => { fane = e.dataset.fane; window.scrollTo(0,0); tegn(); },
+
+  settVekt: e => {
+    const v = lesFelt(e.dataset.felt);
+    if(v===null || v<30 || v>300) return varsle("Skriv vekt i kilo, f.eks. 124,5");
+    S.vekt[idag()] = v; lagre(); tegn();
+  },
+  settSkritt: e => { const v = lesFelt(e.dataset.felt); if(v===null||v<0) return; S.skritt[idag()] = Math.round(v); lagre(); tegn(); },
+  settSovn:   e => { const v = lesFelt(e.dataset.felt); if(v===null||v<0||v>24) return; S.sovn[idag()] = v; lagre(); tegn(); },
+
+  byttModus: () => { egenModus = !egenModus; valgtMat = null; tegn(); },
+  nullstillMat: () => { valgtMat = null; tegn(); },
+  velgMat: e => { valgtMat = alleMat().find(m=>m.n===e.dataset.navn); egenModus = false; tegn(); },
+
+  leggValgt: () => {
+    const m = valgtMat; if(!m) return;
+    const a = lesFelt("m_mengde");
+    if(a===null || a<=0) return varsle("Skriv en mengde.");
+    const per100 = m.e==="100 g" || m.e==="100 ml";
+    const f = per100 ? a/100 : a;
+    const enh = m.e==="100 g" ? " g" : m.e==="100 ml" ? " ml" : " × "+m.e;
+    leggTilMat({n:m.n+" ("+nk(a,0)+enh+")", k:Math.round(m.k*f), p:Math.round(m.p*f*10)/10}, m.n);
+    valgtMat = null; sokTekst = ""; tegn();
+  },
+  leggEngangs: () => {
+    const n = $("e_navn").value.trim(), k = lesFelt("e_k"), p = lesFelt("e_p");
+    if(!n || k===null || p===null) return varsle("Fyll inn navn, kcal og protein.");
+    leggTilMat({n, k:Math.round(k), p}, n); tegn();
+  },
+  lagreEgenMat: () => {
+    const n = $("e_navn").value.trim(), k = lesFelt("e_k"), p = lesFelt("e_p");
+    const e = $("e_e").value;
+    if(!n || k===null || p===null) return varsle("Fyll inn navn, kcal og protein.");
+    if(alleMat().some(m=>m.n.toLowerCase() === n.toLowerCase()))
+      return varsle("Den finnes allerede. Søk den opp i listen.");
+    const ny = {n, e, k:Math.round(k), p};
+    S.egneMat.push(ny);
+    lagre();
+    valgtMat = ny; egenModus = false; tegn();
+    varsle("Lagret. Skriv inn mengden.");
+  },
+  slettEgenMat: e => {
+    S.egneMat.splice(+e.dataset.i, 1);
+    if(valgtMat && valgtMat.egen) valgtMat = null;
+    lagre(); tegn();
+  },
+  fjernMat: e => {
+    const d = idag(), i = +e.dataset.i;
+    S.maltider[d] = (S.maltider[d]||[]).filter((_,j)=>j!==i);
+    lagre(); tegn();
+  },
+
+  byttMal: () => { malModus = !malModus; tegn(); },
+  lagreMal: () => {
+    const n = $("mal_navn").value.trim(), d = idag();
+    if(!n || !(S.maltider[d]||[]).length) return;
+    S.maler[n] = S.maltider[d].slice(); malModus = false; lagre(); tegn();
+    varsle("Mal lagret.");
+  },
+  brukMal: e => {
+    const d = idag(), m = S.maler[e.dataset.navn];
+    if(!m) return;
+    S.maltider[d] = (S.maltider[d]||[]).concat(m); lagre(); tegn();
+  },
+  slettMal: e => { delete S.maler[e.dataset.navn]; lagre(); tegn(); },
+
+  settType: e => { treningType = e.dataset.type; tegn(); },
+  brukForslag: e => {
+    $("kg_"+e.dataset.id).value = String(e.dataset.kg).replace(".",",");
+    $("rp_"+e.dataset.id).value = e.dataset.reps;
+  },
+  loggSett: e => {
+    const id = e.dataset.id, ov = e.dataset.ov;
+    const kg = lesFelt("kg_"+id), rp = lesFelt("rp_"+id);
+    if(kg===null || rp===null) return varsle("Fyll inn både vekt og repetisjoner.");
+    const d = idag();
+    S.okter[d] = S.okter[d] || {};
+    const o = S.okter[d][treningType] = S.okter[d][treningType] || {sett:{}};
+    o.sett = o.sett || {};
+    o.sett[ov] = (o.sett[ov]||[]).concat([{kg, reps:Math.round(rp)}]);
+    lagre(); tegn();
+    startUr(+e.dataset.pause);
+    const n = $("rp_"+id); if(n) n.value = "";
+  },
+  stoppUr: () => stoppUr(),
+  settRpe: e => {
+    const d = idag();
+    S.okter[d] = S.okter[d] || {};
+    const o = S.okter[d].gym = S.okter[d].gym || {};
+    o.rpe = +e.dataset.n;
+    const t = $("gym_notat"); if(t) o.notat = t.value;
+    lagre(); tegn();
+  },
+  lagreGym: () => {
+    const d = idag(), t = $("gym_notat"); if(!t) return;
+    S.okter[d] = S.okter[d] || {};
+    S.okter[d].gym = S.okter[d].gym || {};
+    S.okter[d].gym.notat = t.value;
+    lagre();
+  },
+  settSykMin:  e => sykkel("min", lesFelt(e.dataset.felt)),
+  settSykMot:  e => sykkel("motstand", lesFelt(e.dataset.felt)),
+  settSykPuls: e => sykkel("puls", lesFelt(e.dataset.felt)),
+
+  settMaalKcal: e => { S.maalKcal = +e.dataset.v; lagre(); tegn(); varsle("Målet er oppdatert."); },
+  veksleVane: e => {
+    const d = idag(), id = e.dataset.id;
+    S.vaner[d] = S.vaner[d] || {};
+    S.vaner[d][id] = !S.vaner[d][id];
+    lagre(); tegn();
+  },
+  backup: () => taBackup(),
+  csv: () => { lastNed("weightloss-"+idag()+".csv", byggCsv(), "text/csv"); varsle("CSV lagret i Nedlastinger."); }
+};
+
+for(const mp of MAALEPUNKT){
+  HANDLING["settMaal_"+mp.id] = e => {
+    const v = lesFelt(e.dataset.felt);
+    if(v===null || v<20 || v>250) return varsle("Skriv målet i centimeter.");
+    const d = idag();
+    S.mal[d] = S.mal[d] || {};
+    S.mal[d][mp.id] = v; lagre(); tegn();
+  };
+}
+
+function sykkel(felt, v){
+  if(v===null || v<0) return;
+  const d = idag();
+  S.okter[d] = S.okter[d] || {};
+  S.okter[d].sykkel = S.okter[d].sykkel || {};
+  S.okter[d].sykkel[felt] = v;
+  lagre(); tegn();
+}
+
+function leggTilMat(m, favNavn){
+  const d = idag();
+  S.maltider[d] = (S.maltider[d]||[]).concat([m]);
+  S.favoritter[favNavn] = (S.favoritter[favNavn]||0) + 1;
+  lagre();
+}
+
+/* ═══ Hendelser ═══════════════════════════════════════════ */
+
+document.addEventListener("click", ev => {
+  const n = ev.target.closest("[data-act]");
+  if(!n) return;
+  const f = HANDLING[n.dataset.act];
+  if(f){ ev.preventDefault(); f(n); }
+});
+
+document.addEventListener("input", ev => {
+  if(ev.target.dataset.sok){ sokTekst = ev.target.value; tegn(); }
+});
+
+document.addEventListener("keydown", ev => {
+  if(ev.key !== "Enter") return;
+  const a = ev.target.dataset.enter;
+  if(!a) return;
+  ev.preventDefault();
+  ev.target.blur();
+  if(a.indexOf("loggSett_") === 0){
+    const knapp = document.querySelector('[data-act="loggSett"][data-id="'+a.slice(9)+'"]');
+    if(knapp) HANDLING.loggSett(knapp);
+  } else if(HANDLING[a]){
+    const knapp = document.querySelector('[data-act="'+a+'"]');
+    if(knapp) HANDLING[a](knapp);
+  }
+});
+
+document.addEventListener("blur", ev => {
+  const a = ev.target.dataset && ev.target.dataset.blur;
+  if(a && HANDLING[a]) HANDLING[a](ev.target);
+}, true);
+
+/* ═══ Start ═══════════════════════════════════════════════ */
+
+last();
+beOmVarigLagring();
+tegn();
+
+/* ═══ Offline ═════════════════════════════════════════════ */
+
+if("serviceWorker" in navigator){
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js").catch(()=>{ /* virker uansett med nett */ });
+  });
+}
+
+</script>
+</body>
+</html>
