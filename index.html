@@ -98,7 +98,7 @@ const iSykkel = () => S.innst.sykkelfaktor;
 const TOM = {
   vekt:{}, maltider:{}, favoritter:{}, okter:{}, vaner:{},
   skritt:{}, sovn:{}, mal:{}, maler:{}, egneMat:[],
-  innst: Object.assign({}, STANDARD_INNST), program: null, sisteBackup: null
+  innst: Object.assign({}, STANDARD_INNST), program: null, programVersjon: 2, sisteBackup: null
 };
 
 let S = JSON.parse(JSON.stringify(TOM));
@@ -122,6 +122,14 @@ function migrer(d){
   d.innst = Object.assign({}, STANDARD_INNST, d.innst || {});
   if(d.maalKcal){ d.innst.kcal = d.maalKcal; delete d.maalKcal; }
   if(!Array.isArray(d.program) || !d.program.length) d.program = standardProgram();
+  if(d.programVersjon !== 2){          // nye øvelser tilpasset utstyret
+    const std = standardProgram();
+    d.program = d.program.map(p => {
+      const ny = std.find(x => x.id === p.id);
+      return ny ? {id:p.id, navn:p.navn, fokus:ny.fokus, ovelser:ny.ovelser} : p;
+    });
+    d.programVersjon = 2;
+  }
   if(d.okter){
     const ny = {};
     for(const [dato,o] of Object.entries(d.okter)){
@@ -186,83 +194,89 @@ function ovStr(o){
   return o.sett + " × " + (o.lo===o.hi ? o.lo : o.lo+"–"+o.hi) + (o.e==="reps" ? "" : " " + o.e);
 }
 
-/* 20 ferdige økter, alle mulige med ditt utstyr */
+/* 20 ferdige økter — tilpasset Exerfit-multigym (høy talje, lav talje,
+   pec deck, beinspark og legcurl), benk med stang, manualer og 8 kg kettlebell */
 const BIBLIOTEK = [
 ["Helkropp A","Bryst, rygg og bein",[
-  ["Benkpress",3,8,10,2.5,"reps",150],["Nedtrekk",3,10,12,2.5],["Beinpress",3,10,12,5,"reps",150],
+  ["Benkpress",3,8,10,2.5,"reps",150],["Nedtrekk",3,10,12,2.5],
+  ["Knebøy til benk med manualer",3,10,12,2,"reps",150],
   ["Sittende roing",3,10,12,2.5],["Planke",3,20,45,0,"sek",60]]],
 ["Helkropp B","Skuldre, bein og armer",[
-  ["Skulderpress",3,8,10,2.5,"reps",150],["Goblet squat",3,10,12,2],
-  ["Rumensk markløft",3,10,12,2,"reps",150],["Biceps / triceps",2,10,14,1,"reps",90],
-  ["Farmer's walk",3,30,50,2,"m"]]],
+  ["Skulderpress med manualer",3,8,10,2,"reps",150],["Goblet squat",3,10,12,2],
+  ["Rumensk markløft med stang",3,10,12,2.5,"reps",150],
+  ["Biceps curl med manualer",2,10,14,1,"reps",90],["Farmer's walk",3,30,50,2,"m"]]],
 ["Helkropp maskin","Hele kroppen, lav teknikkterskel",[
-  ["Brystpress i maskin",3,10,12,2.5],["Nedtrekk",3,10,12,2.5],["Beinpress",3,12,15,5],
-  ["Sittende roing",3,10,12,2.5],["Magemaskin",3,12,15,2.5]]],
+  ["Pec deck flyes",3,12,15,2.5],["Nedtrekk",3,10,12,2.5],["Beinspark",3,12,15,5],
+  ["Sittende roing",3,10,12,2.5],["Legcurl",3,12,15,2.5]]],
 ["Overkropp","Bryst, rygg, skuldre og armer",[
   ["Benkpress",4,6,8,2.5,"reps",180],["Nedtrekk",3,8,10,2.5,"reps",150],
-  ["Skulderpress",3,8,10,2.5],["Sittende roing",3,10,12,2.5],
-  ["Biceps curl",3,10,12,1,"reps",90],["Triceps pushdown",3,10,12,1,"reps",90]]],
+  ["Skulderpress med manualer",3,8,10,2],["Sittende roing",3,10,12,2.5],
+  ["Biceps curl i talje",3,10,12,2.5,"reps",90],["Triceps pushdown",3,10,12,2.5,"reps",90]]],
 ["Underkropp","Bein, sete og hofte",[
-  ["Beinpress",4,8,12,5,"reps",180],["Goblet squat",3,10,12,2],
-  ["Rumensk markløft",3,10,12,2,"reps",150],["Utfall med manualer",3,8,10,2],
-  ["Tåhev",3,12,20,2,"reps",60]]],
+  ["Knebøy til benk med manualer",4,8,12,2,"reps",180],
+  ["Rumensk markløft med stang",3,10,12,2.5,"reps",150],
+  ["Hoftehev på benk",3,10,12,2.5,"reps",120],["Beinspark",3,12,15,5],
+  ["Legcurl",3,12,15,2.5],["Tåhev med manualer",3,12,20,2,"reps",60]]],
 ["Push","Bryst, skuldre og triceps",[
-  ["Benkpress",4,6,10,2.5,"reps",180],["Skulderpress",3,8,10,2.5,"reps",150],
-  ["Skråbenk med manualer",3,10,12,2],["Sidehev",3,12,15,1,"reps",60],
-  ["Triceps pushdown",3,10,14,1,"reps",90]]],
+  ["Benkpress",4,6,10,2.5,"reps",180],["Skulderpress med manualer",3,8,10,2,"reps",150],
+  ["Skråbenk med manualer",3,10,12,2],["Pec deck flyes",3,12,15,2.5],
+  ["Sidehev",3,12,15,1,"reps",60],["Triceps pushdown",3,10,14,2.5,"reps",90]]],
 ["Pull","Rygg og biceps",[
   ["Nedtrekk",4,8,12,2.5,"reps",150],["Sittende roing",4,8,12,2.5,"reps",150],
-  ["Enarms roing med manual",3,10,12,2],["Biceps curl",3,10,12,1,"reps",90],
-  ["Face pull",3,12,15,1,"reps",60]]],
+  ["Enarms roing med manual",3,10,12,2],["Face pull",3,12,15,2.5,"reps",60],
+  ["Biceps curl i talje",3,10,12,2.5,"reps",90]]],
 ["Bein og kjerne","Bein, mage og korsrygg",[
-  ["Beinpress",4,10,12,5,"reps",150],["Goblet squat",3,10,12,2],
-  ["Planke",3,25,60,0,"sek",60],["Sideplanke",3,20,45,0,"sek",45],
-  ["Dødbille",3,10,14,0]]],
+  ["Knebøy til benk med manualer",4,10,12,2,"reps",150],["Beinspark",3,12,15,5],
+  ["Legcurl",3,12,15,2.5],["Planke",3,25,60,0,"sek",60],
+  ["Sideplanke",3,20,45,0,"sek",45],["Dødbille",3,10,14,0]]],
 ["Rygg og biceps","Rygg, bakskulder og biceps",[
   ["Nedtrekk",4,8,12,2.5,"reps",150],["Sittende roing",3,10,12,2.5],
-  ["Hammercurl",3,10,12,1,"reps",90],["Face pull",3,12,15,1,"reps",60],
-  ["Farmer's walk",3,30,50,2,"m"]]],
+  ["Enarms roing med manual",3,10,12,2],["Hammercurl",3,10,12,1,"reps",90],
+  ["Face pull",3,12,15,2.5,"reps",60]]],
 ["Bryst og triceps","Bryst og triceps",[
   ["Benkpress",4,6,10,2.5,"reps",180],["Skråbenk med manualer",3,8,12,2,"reps",150],
-  ["Flyes med manualer",3,12,15,1],["Triceps pushdown",3,10,14,1,"reps",90],
+  ["Pec deck flyes",3,12,15,2.5],["Triceps pushdown",3,10,14,2.5,"reps",90],
   ["Tricepspress over hodet",3,10,12,1,"reps",90]]],
 ["Skuldre og armer","Skuldre, biceps og triceps",[
-  ["Skulderpress",4,8,10,2.5,"reps",150],["Sidehev",4,12,15,1,"reps",60],
-  ["Face pull",3,12,15,1,"reps",60],["Biceps curl",3,10,12,1,"reps",90],
-  ["Triceps pushdown",3,10,14,1,"reps",90]]],
+  ["Skulderpress med manualer",4,8,10,2,"reps",150],["Sidehev",4,12,15,1,"reps",60],
+  ["Face pull",3,12,15,2.5,"reps",60],["Biceps curl med manualer",3,10,12,1,"reps",90],
+  ["Triceps pushdown",3,10,14,2.5,"reps",90]]],
 ["Kjerne og stabilitet","Mage, korsrygg og balanse",[
   ["Planke",4,25,60,0,"sek",60],["Sideplanke",3,20,45,0,"sek",45],
-  ["Dødbille",3,10,14,0],["Rygghev",3,12,15,0,"reps",60],
+  ["Dødbille",3,10,14,0],["Rygghev på gulv",3,12,15,0,"reps",60],
   ["Farmer's walk",3,30,50,2,"m"]]],
 ["Kettlebell helkropp","Hele kroppen, kondisjon og styrke",[
   ["Kettlebell swing",4,12,20,0,"reps",90],["Goblet squat",3,10,12,2],
   ["Kettlebell roing",3,10,12,2],["Kettlebell press",3,8,10,2],
   ["Farmer's walk",3,30,50,2,"m"]]],
-["Frivekter helkropp","Hele kroppen med manualer",[
+["Frivekter helkropp","Hele kroppen med stang og manualer",[
   ["Manualbenkpress",3,8,12,2,"reps",150],["Enarms roing med manual",3,10,12,2],
-  ["Knebøy med manualer",3,10,12,2,"reps",150],["Rumensk markløft",3,10,12,2],
-  ["Skulderpress med manualer",3,8,10,2],["Planke",3,25,60,0,"sek",60]]],
+  ["Knebøy til benk med manualer",3,10,12,2,"reps",150],
+  ["Rumensk markløft med stang",3,10,12,2.5],["Skulderpress med manualer",3,8,10,2],
+  ["Planke",3,25,60,0,"sek",60]]],
 ["Benkpress-fokus","Bryst og pressestyrke",[
   ["Benkpress",5,3,6,2.5,"reps",210],["Skråbenk med manualer",3,8,10,2,"reps",150],
-  ["Nedtrekk",3,10,12,2.5],["Triceps pushdown",3,10,12,1,"reps",90],
+  ["Nedtrekk",3,10,12,2.5],["Triceps pushdown",3,10,12,2.5,"reps",90],
   ["Sidehev",3,12,15,1,"reps",60]]],
 ["Beinstyrke tung","Bein og sete, tunge løft",[
-  ["Beinpress",5,5,8,5,"reps",210],["Rumensk markløft",4,8,10,2.5,"reps",180],
-  ["Utfall med manualer",3,8,10,2,"reps",120],["Tåhev",4,10,15,2,"reps",60]]],
+  ["Markløft med stang",4,5,8,5,"reps",210],
+  ["Knebøy til benk med manualer",4,8,10,2,"reps",180],
+  ["Hoftehev på benk",3,8,12,2.5,"reps",120],["Beinspark",3,10,15,5],
+  ["Tåhev med manualer",4,10,15,2,"reps",60]]],
 ["Kort økt, 20 min","Hele kroppen når tiden er knapp",[
-  ["Beinpress",2,12,15,5],["Benkpress",2,10,12,2.5],
-  ["Nedtrekk",2,10,12,2.5],["Planke",2,25,45,0,"sek",45]]],
+  ["Benkpress",2,10,12,2.5],["Nedtrekk",2,10,12,2.5],
+  ["Beinspark",2,12,15,5],["Planke",2,25,45,0,"sek",45]]],
 ["Sirkel","Kondisjon og styrke i ett",[
   ["Kettlebell swing",3,15,20,0,"reps",45],["Goblet squat",3,12,15,2,"reps",45],
   ["Nedtrekk",3,12,15,2.5,"reps",45],["Benkpress",3,12,15,2.5,"reps",45],
   ["Planke",3,30,45,0,"sek",45]]],
 ["Rygg og holdning","Motvekt til stillesitting",[
-  ["Face pull",4,12,15,1,"reps",60],["Sittende roing",3,10,12,2.5],
-  ["Rygghev",3,12,15,0,"reps",60],["Sideplanke",3,20,45,0,"sek",45],
+  ["Face pull",4,12,15,2.5,"reps",60],["Sittende roing",3,10,12,2.5],
+  ["Rygghev på gulv",3,12,15,0,"reps",60],["Sideplanke",3,20,45,0,"sek",45],
   ["Skulderrotasjon med manual",3,12,15,1,"reps",45]]],
 ["Mobilitet","Lett aktivering på hviledager",[
   ["Hoftebøyer-tøy",2,30,45,0,"sek",30],["Brystmobilitet",2,30,45,0,"sek",30],
-  ["Rygghev",2,10,12,0,"reps",45],["Dødbille",2,10,12,0,"reps",45],
+  ["Rygghev på gulv",2,10,12,0,"reps",45],["Dødbille",2,10,12,0,"reps",45],
   ["Planke",2,20,40,0,"sek",45]]]
 ].map(x=>({navn:x[0], fokus:x[1], ovelser:x[2].map(ov)}));
 
